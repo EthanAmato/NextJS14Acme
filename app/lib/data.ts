@@ -134,6 +134,9 @@ export async function fetchFilteredInvoices(
   }
 }
 
+// Counts the amount of rows in the invoices table that resembles the
+// specified query. It then divides it by the amount of items in a given page
+// to calculate the amount of pages it will take to go through all matches
 export async function fetchInvoicesPages(query: string) {
   noStore() 
   try {

@@ -11,12 +11,13 @@ export default function Search({ placeholder }: { placeholder: string }) {
 
   // Callback function that modifies the URL search parameters for easy refetching of data based on a term
   // URL is updated without reloading the page
-  // useDebouncedCallback will wait for a specified amount of time before running the callback
+  // useDebouncedCallback will wait for a specified amount of time after the user stops typing before running the callback
   // this will allow us to not bog down our server with incessant redundant calls
   const handleSearch = useDebouncedCallback((term: string) => {
     console.log(`Searching... ${term}`);
     // Will get search params in URL like ?page=4&limit=100
     const params = new URLSearchParams(searchParams);
+    params.set("page", "1");
     if (term) {
       params.set("query", term);
     } else {
