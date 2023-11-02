@@ -10,16 +10,28 @@ import { redirect } from "next/navigation";
 // use Zod for validating a schema before saving to a database
 const InvoiceSchema = z.object({
   id: z.string(), // because it is in UUID format
-  customerId: z.string(),
-  amount: z.coerce.number(), //because default return value from number type input field is string
-  status: z.enum(["pending", "paid"]),
+  customerId: z.string({ invalid_type_error: "Please select a customer..." }),
+  amount: z.coerce
+    .number()
+    .gt(0, { message: "Please enter an amount greater than $0." }), //because default return value from number type input field is string
+  // must be greater than 0
+  status: z.enum(["pending", "paid"], {
+    invalid_type_error: "Please select an invoice status.",
+  }),
   date: z.string(),
 });
 
 // Create another schema that is NOT on the DB - we don't provide id or date
 const CreateInvoice = InvoiceSchema.omit({ id: true, date: true });
-
-export async function createInvoice(formData: FormData) {
+export type State = {
+  errors?: {
+    customerId?: string[];
+    amount?: string[];
+    status?: string[];
+  };
+  message?: string | null;
+};
+export async function createInvoice(prevState: State, formData: FormData) {
   // Before Zod
   //   const rawFormData = {
   //   customerId: formData.get("customerId"),
@@ -27,12 +39,22 @@ export async function createInvoice(formData: FormData) {
   //   status: formData.get("status"),
   //   };
   // After Zod:
-  const { customerId, amount, status } = CreateInvoice.parse({
+  // Validate form fields using Zod
+  const validatedFields = CreateInvoice.safeParse({
     customerId: formData.get("customerId"),
     amount: formData.get("amount"),
     status: formData.get("status"),
   });
 
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: "Missing fields. Failed to Create Invoice.",
+    };
+  }
+
+  // Prepare data for insertion into the database
+  const { customerId, amount, status } = validatedFields.data;
   //   Store amount in cents because dealing with dollars in SQL is actually terrible (i.e. 2 digit decimals)
   const amountInCents = amount * 100;
   const date = new Date().toISOString().split("T")[0]; // gets the current date without the time
@@ -40,7 +62,7 @@ export async function createInvoice(formData: FormData) {
   try {
     await sql`
     INSERT INTO invoices (customer_id, amount, status, date) 
-    VALUES (${customerId}, ${amount}, ${status}, ${date})
+    VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
     `;
 
     // Ensures fresh data is fetched from the server at this path
@@ -86,7 +108,6 @@ export async function updateInvoice(id: string, formData: FormData) {
 export async function deleteInvoice(id: string) {
   // Throwing an error will return the error.tsx file
   // throw new Error("Failed to Delte Invoice")
-
 
   try {
     await sql`DELETE FROM invoices WHERE id = ${id}`;
