@@ -6,7 +6,7 @@ import { sql } from "@vercel/postgres";
 // it to get the up-to-date data
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-
+import { signIn } from "@/auth";
 // use Zod for validating a schema before saving to a database
 const InvoiceSchema = z.object({
   id: z.string(), // because it is in UUID format
@@ -117,4 +117,18 @@ export async function deleteInvoice(id: string) {
     };
   }
   revalidatePath("/dashboard/invoices");
+}
+
+export async function authenticate(
+  prevState: string | undefined,
+  formData: FormData
+) {
+  try {
+    await signIn("credentials", Object.fromEntries(formData));
+  } catch (error) {
+    if ((error as Error).message.includes("CredentialsSignIn")) {
+      return "CredentialSignIn";
+    }
+    throw error;
+  }
 }
